@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>KT Alpha Schedule - Unified Design</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap');
+        :root { --min-unit: 1.5px; }
+        
+        body { 
+            font-family: 'Pretendard', -apple-system, sans-serif; 
+            background: #f0f4f8; 
+            margin: 0; 
+            padding: 0; 
+            letter-spacing: -0.02em;
+            overflow-x: auto; 
+        }
+        
+        header { background: #0f172a; color: white; padding: 12px 20px; position: sticky; top: 0; z-index: 1000; min-width: 2300px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        
+        .nav-controls { display: flex; align-items: center; gap: 12px; }
+        .nav-btn { background: #2563eb; color: white; border: none; padding: 7px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; }
+        .this-week-btn { background: #475569; }
+        .current-week-display { font-size: 17px; font-weight: 700; min-width: 220px; text-align: center; }
+
+        .stats-bar { display: flex; gap: 15px; background: rgba(255,255,255,0.1); padding: 8px 15px; border-radius: 6px; font-size: 13px; }
+        .stat-badge { padding: 2px 8px; border-radius: 4px; color: white; font-size: 11px; font-weight: 700; margin-right: 5px; }
+        .stat-badge.N { background: #10b981; } .stat-badge.R { background: #3b82f6; } .stat-badge.NR { background: #f59e0b; } .stat-badge.TOTAL { background: #64748b; }
+        .stat-count { font-size: 15px; font-weight: 700; }
+
+        .main-wrapper { display: flex; padding: 10px; min-width: 2300px; }
+        .time-axis { width: 55px; flex-shrink: 0; margin-top: 68px; border-right: 1px solid #cbd5e1; }
+        .time-label { height: calc(60 * var(--min-unit)); font-size: 12px; font-weight: 600; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 3px; }
+
+        .day-column { flex: 1; min-width: 440px; border: 1px solid #cbd5e1; background: white; margin-right: 4px; border-radius: 4px; overflow: hidden; }
+        .day-header { background: #1e293b; color: white; padding: 12px; text-align: center; font-size: 16px; font-weight: 700; }
+        .studio-header { display: flex; background: #2563eb; color: white; height: 34px; align-items: center; font-size: 14px; font-weight: 600; }
+        .studio-header div { flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); }
+
+        .grid { position: relative; height: calc(720 * var(--min-unit)); width: 100%; display: flex; background: #f8fafc; }
+        .lane { flex: 1; position: relative; border-right: 1px solid #e2e8f0; }
+
+        .card { position: absolute; left: 1px; right: 1px; background: white; border: 1px solid #cbd5e1; border-radius: 2px; overflow: hidden; display: flex; flex-direction: column; }
+        .pgm-bar { background: #8b5cf6; color: white; padding: 4px 8px; font-size: 12px; font-weight: 700; }
+        .card-content { padding: 10px; line-height: 1.5; } 
+        
+        .title { font-weight: 700; font-size: 14.5px; color: #0f172a; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* PD, MD, SH 정보 통일화 */
+        .info-row { font-size: 12.5px; font-weight: 500; color: #334155; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .label-common { font-weight: 800; margin-right: 2px; }
+        .label-pd { color: #ea580c; } 
+        .label-md { color: #be185d; } 
+        .label-sh { color: #d97706; }
+
+        .card.type-N { background: #f0fff4; border-top: 3px solid #10b981; }
+        .card.type-R { background: #ebf8ff; border-top: 3px solid #3b82f6; }
+        .card.type-NR { background: #fffaf0; border-top: 3px solid #f59e0b; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-top">
+        <div class="nav-controls">
+            <button class="nav-btn this-week-btn" onclick="resetToToday()">이번 주</button>
+            <button class="nav-btn" onclick="changeWeek(-7)">◀</button>
+            <div class="current-week-display" id="weekDisplay">...</div>
+            <button class="nav-btn" onclick="changeWeek(7)">▶</button>
+        </div>
+        <div style="font-weight: 800; font-size: 19px;">📺 KT Alpha Scheduler</div>
+        <div class="stats-bar">
+            <div><span class="stat-badge N">N</span><span class="stat-count" id="count-N">0</span></div>
+            <div><span class="stat-badge R">R</span><span class="stat-count" id="count-R">0</span></div>
+            <div><span class="stat-badge NR">NR</span><span class="stat-count" id="count-NR">0</span></div>
+            <div style="border-left:1px solid rgba(255,255,255,0.3); padding-left:10px;">
+                <span class="stat-badge TOTAL">TOTAL</span><span class="stat-count" id="count-TOTAL">0</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="main-wrapper">
+    <div class="time-axis" id="timeAxis"></div>
+    <div id="board" style="display:flex; flex:1;"></div>
+</div>
+
+<script>
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS9rWCbKzAsXMwFA-dx-X-jpiAtFr81_xSbj8GD3SxZIkmKi0-PJvikFyV-aDS5ere3VlU54CzhxluG/pub?gid=0&single=true&output=csv";
+    let currentMonday = getMonday(new Date());
+
+    function getMonday(d) {
+        d = new Date(d);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(new Date(d.setDate(diff)).setHours(0,0,0,0));
+    }
+
+    function changeWeek(days) { currentMonday.setDate(currentMonday.getDate() + days); load(); }
+    function resetToToday() { currentMonday = getMonday(new Date()); load(); }
+    function formatDate(date) {
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+
+    async function load() {
+        try {
+            const response = await fetch(`${CSV_URL}&nocache=${new Date().getTime()}`);
+            const text = await response.text();
+            const rows = text.split('\n').filter(line => line.trim() !== '').map(r => r.split(',').map(c => c.replace(/"/g, '').trim()));
+            const schedule = {};
+            rows.slice(1).forEach(r => {
+                if(!r[0] || !r[1]) return;
+                const d = r[0].replace(/\./g, '-');
+                if(!schedule[d]) schedule[d] = [];
+                const t = r[1].split('-');
+                const s = t[0].split(':'), e = t[1] ? t[1].split(':') : [parseInt(s[0])+1, s[1]];
+                schedule[d].push({
+                    time: r[1], startMin: (parseInt(s[0])*60 + parseInt(s[1])) - 540,
+                    duration: (parseInt(e[0])*60 + parseInt(e[1])) - (parseInt(s[0])*60 + parseInt(s[1])),
+                    st: r[2].toUpperCase().includes('B') ? 'B' : 'A', title: r[3], type: r[4] || 'N', pd: r[5], md: r[6],
+                    sh: [r[7], r[8]].filter(s => s && s !== '-').join(' / '), pgm: r[10] && r[10] !== '-' ? r[10] : ''
+                });
+            });
+            render(schedule);
+        } catch(e) { console.error(e); }
+    }
+
+    function render(schedule) {
+        const board = document.getElementById('board');
+        board.innerHTML = '';
+        const dayNames = ['월', '화', '수', '목', '금'];
+        let stats = { N: 0, R: 0, NR: 0, TOTAL: 0 };
+
+        for(let i=0; i<5; i++) {
+            const targetDate = new Date(currentMonday);
+            targetDate.setDate(currentMonday.getDate() + i);
+            const dateStr = formatDate(targetDate);
+            const col = document.createElement('div');
+            col.className = 'day-column';
+            col.innerHTML = `<div class="day-header">${dateStr} (${dayNames[i]})</div>
+                <div class="studio-header"><div>A스튜디오</div><div>B스튜디오</div></div>
+                <div class="grid"><div class="lane" id="lane-${dateStr}-A"></div><div class="lane" id="lane-${dateStr}-B"></div></div>`;
+            board.appendChild(col);
+
+            if(schedule[dateStr]) {
+                schedule[dateStr].forEach(item => {
+                    if(stats[item.type] !== undefined) stats[item.type]++; stats.TOTAL++;
+                    const card = document.createElement('div');
+                    card.className = `card type-${item.type} ${item.pgm ? 'has-pgm' : ''}`;
+                    card.style.top = `calc(${item.startMin} * var(--min-unit))`;
+                    card.style.height = `calc(${item.duration} * var(--min-unit))`;
+                    card.innerHTML = `
+                        ${item.pgm ? `<div class="pgm-bar">★ ${item.pgm}</div>` : ''}
+                        <div class="card-content">
+                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                                <div class="badge ${item.type}">${item.type}</div>
+                                <span style="font-size:11.5px; font-weight:600; color:#64748b;">${item.time}</span>
+                            </div>
+                            <div class="title">${item.title}</div>
+                            <div class="info-row">
+                                <span><span class="label-common label-pd">PD</span>${item.pd}</span>
+                                <span><span class="label-common label-md">MD</span>${item.md}</span>
+                            </div>
+                            <div class="info-row" style="margin-top:2px;">
+                                <span><span class="label-common label-sh">SH</span>${item.sh}</span>
+                            </div>
+                        </div>`;
+                    const lane = document.getElementById(`lane-${dateStr}-${item.st}`);
+                    if(lane) lane.appendChild(card);
+                });
+            }
+        }
+        ['N','R','NR','TOTAL'].forEach(t => document.getElementById(`count-${t}`).innerText = stats[t]);
+        const lastDay = new Date(currentMonday); lastDay.setDate(currentMonday.getDate() + 4);
+        document.getElementById('weekDisplay').innerText = formatDate(currentMonday).replace(/-/g,'.') + ' ~ ' + formatDate(lastDay).replace(/-/g,'.');
+        
+        const axis = document.getElementById('timeAxis'); axis.innerHTML = '';
+        for(let i=9; i<=19; i++) axis.innerHTML += `<div class="time-label">${String(i).padStart(2,'0')}:00</div>`;
+    }
+    load();
+</script>
+</body>
+</html>
