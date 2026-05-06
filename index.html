@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>KT Alpha Schedule - Unified Design</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KT Alpha Schedule - Fluid Layout</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap');
         :root { --min-unit: 1.5px; }
@@ -13,14 +14,25 @@
             margin: 0; 
             padding: 0; 
             letter-spacing: -0.02em;
+            /* 가로 스크롤을 유지하면서도 확대/축소 시 레이아웃 붕괴 방지 */
             overflow-x: auto; 
+            min-width: fit-content;
         }
         
-        header { background: #0f172a; color: white; padding: 12px 20px; position: sticky; top: 0; z-index: 1000; min-width: 2300px; }
+        header { 
+            background: #0f172a; 
+            color: white; 
+            padding: 12px 20px; 
+            position: sticky; 
+            left: 0; /* 가로 스크롤 시에도 헤더 내용 유지 */
+            top: 0; 
+            z-index: 1000; 
+            min-width: 1400px; /* 헤더의 최소 너비 설정 */
+        }
         .header-top { display: flex; justify-content: space-between; align-items: center; }
         
         .nav-controls { display: flex; align-items: center; gap: 12px; }
-        .nav-btn { background: #2563eb; color: white; border: none; padding: 7px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; }
+        .nav-btn { background: #2563eb; color: white; border: none; padding: 7px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; white-space: nowrap; }
         .this-week-btn { background: #475569; }
         .current-week-display { font-size: 17px; font-weight: 700; min-width: 220px; text-align: center; }
 
@@ -29,11 +41,26 @@
         .stat-badge.N { background: #10b981; } .stat-badge.R { background: #3b82f6; } .stat-badge.NR { background: #f59e0b; } .stat-badge.TOTAL { background: #64748b; }
         .stat-count { font-size: 15px; font-weight: 700; }
 
-        .main-wrapper { display: flex; padding: 10px; min-width: 2300px; }
+        /* 메인 영역 유연성 부여 */
+        .main-wrapper { 
+            display: flex; 
+            padding: 10px; 
+            min-width: 1400px; /* 모니터가 작아도 겹치지 않게 최소 너비 설정 */
+            width: 100%;
+            box-sizing: border-box;
+        }
         .time-axis { width: 55px; flex-shrink: 0; margin-top: 68px; border-right: 1px solid #cbd5e1; }
         .time-label { height: calc(60 * var(--min-unit)); font-size: 12px; font-weight: 600; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 3px; }
 
-        .day-column { flex: 1; min-width: 440px; border: 1px solid #cbd5e1; background: white; margin-right: 4px; border-radius: 4px; overflow: hidden; }
+        .board-container { display: flex; flex: 1; gap: 4px; }
+        .day-column { 
+            flex: 1; /* 창 크기에 따라 컬럼 너비 자동 조절 */
+            min-width: 280px; /* 너무 작아지지 않게 방어선 구축 */
+            border: 1px solid #cbd5e1; 
+            background: white; 
+            border-radius: 4px; 
+            overflow: hidden; 
+        }
         .day-header { background: #1e293b; color: white; padding: 12px; text-align: center; font-size: 16px; font-weight: 700; }
         .studio-header { display: flex; background: #2563eb; color: white; height: 34px; align-items: center; font-size: 14px; font-weight: 600; }
         .studio-header div { flex: 1; text-align: center; border-right: 1px solid rgba(255,255,255,0.2); }
@@ -42,12 +69,11 @@
         .lane { flex: 1; position: relative; border-right: 1px solid #e2e8f0; }
 
         .card { position: absolute; left: 1px; right: 1px; background: white; border: 1px solid #cbd5e1; border-radius: 2px; overflow: hidden; display: flex; flex-direction: column; }
-        .pgm-bar { background: #8b5cf6; color: white; padding: 4px 8px; font-size: 12px; font-weight: 700; }
-        .card-content { padding: 10px; line-height: 1.5; } 
+        .pgm-bar { background: #8b5cf6; color: white; padding: 4px 8px; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-content { padding: 10px; line-height: 1.5; overflow: hidden; } 
         
         .title { font-weight: 700; font-size: 14.5px; color: #0f172a; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* PD, MD, SH 정보 통일화 */
         .info-row { font-size: 12.5px; font-weight: 500; color: #334155; margin-bottom: 2px; display: flex; flex-wrap: wrap; gap: 8px; }
         .label-common { font-weight: 800; margin-right: 2px; }
         .label-pd { color: #ea580c; } 
@@ -69,7 +95,7 @@
             <div class="current-week-display" id="weekDisplay">...</div>
             <button class="nav-btn" onclick="changeWeek(7)">▶</button>
         </div>
-        <div style="font-weight: 800; font-size: 19px;">📺 KT Alpha Scheduler</div>
+        <div style="font-weight: 800; font-size: 19px; white-space: nowrap;">📺 KT Alpha Scheduler</div>
         <div class="stats-bar">
             <div><span class="stat-badge N">N</span><span class="stat-count" id="count-N">0</span></div>
             <div><span class="stat-badge R">R</span><span class="stat-count" id="count-R">0</span></div>
@@ -83,7 +109,7 @@
 
 <div class="main-wrapper">
     <div class="time-axis" id="timeAxis"></div>
-    <div id="board" style="display:flex; flex:1;"></div>
+    <div id="board" class="board-container"></div>
 </div>
 
 <script>
@@ -157,7 +183,7 @@
                                 <div class="badge ${item.type}">${item.type}</div>
                                 <span style="font-size:11.5px; font-weight:600; color:#64748b;">${item.time}</span>
                             </div>
-                            <div class="title">${item.title}</div>
+                            <div class="title" title="${item.title}">${item.title}</div>
                             <div class="info-row">
                                 <span><span class="label-common label-pd">PD</span>${item.pd}</span>
                                 <span><span class="label-common label-md">MD</span>${item.md}</span>
