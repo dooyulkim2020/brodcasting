@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KT Alpha Schedule - Guest Added</title>
+    <title>KT Alpha Schedule - Summary Report Added</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap');
         :root { --min-unit: 1.5px; }
@@ -15,6 +15,8 @@
         .nav-controls { display: flex; align-items: center; gap: 12px; }
         .nav-btn { background: #2563eb; color: white; border: none; padding: 7px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; white-space: nowrap; }
         .this-week-btn { background: #475569; }
+        .report-btn { background: #10b981; margin-left: 10px; display: flex; align-items: center; gap: 4px; }
+        .report-btn:hover { background: #059669; }
         .current-week-display { font-size: 17px; font-weight: 700; min-width: 220px; text-align: center; }
 
         .stats-bar { display: flex; gap: 15px; background: rgba(255,255,255,0.1); padding: 8px 15px; border-radius: 6px; font-size: 13px; }
@@ -46,7 +48,7 @@
         .label-pd { color: #ea580c; } 
         .label-md { color: #be185d; } 
         .label-sh { color: #d97706; }
-        .label-gst { color: #059669; } /* Guest 라벨 색상 */
+        .label-gst { color: #059669; }
 
         .card.type-N { background: #f0fff4; border-top: 3px solid #10b981; }
         .card.type-R { background: #ebf8ff; border-top: 3px solid #3b82f6; }
@@ -63,7 +65,10 @@
             <div class="current-week-display" id="weekDisplay">...</div>
             <button class="nav-btn" onclick="changeWeek(7)">▶</button>
         </div>
-        <div style="font-weight: 800; font-size: 19px; white-space: nowrap;">📺 KT Alpha Scheduler</div>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="font-weight: 800; font-size: 19px; white-space: nowrap;">📺 KT Alpha Scheduler</div>
+            <button class="nav-btn report-btn" onclick="openSummaryReport()">📊 요약보고서</button>
+        </div>
         <div class="stats-bar">
             <div><span class="stat-badge N">N</span><span class="stat-count" id="count-N">0</span></div>
             <div><span class="stat-badge R">R</span><span class="stat-count" id="count-R">0</span></div>
@@ -83,6 +88,7 @@
 <script>
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS9rWCbKzAsXMwFA-dx-X-jpiAtFr81_xSbj8GD3SxZIkmKi0-PJvikFyV-aDS5ere3VlU54CzhxluG/pub?gid=0&single=true&output=csv";
     let currentMonday = getMonday(new Date());
+    let globalScheduleData = {}; // 보고서 생성을 위한 전역 데이터 저장소
 
     function getMonday(d) {
         d = new Date(d);
@@ -113,6 +119,8 @@
                 
                 schedule[d].push({
                     time: r[1], 
+                    startTimeStr: t[0],
+                    endTimeStr: t[1] || '',
                     startMin: (parseInt(s[0])*60 + parseInt(s[1])) - 540,
                     duration: (parseInt(e[0])*60 + parseInt(e[1])) - (parseInt(s[0])*60 + parseInt(s[1])),
                     st: r[2].toUpperCase().includes('B') ? 'B' : 'A', 
@@ -121,10 +129,12 @@
                     pd: r[5], 
                     md: r[6],
                     sh: [r[7], r[8]].filter(v => v && v !== '-').join(' / '),
-                    gst: r[9] && r[9] !== '-' ? r[9] : '', // Guest 열(인덱스 9) 추가
+                    shArray: [r[7], r[8]].filter(v => v && v !== '-'),
+                    gst: r[9] && r[9] !== '-' ? r[9] : '',
                     pgm: r[10] && r[10] !== '-' ? r[10] : ''
                 });
             });
+            globalScheduleData = schedule;
             render(schedule);
         } catch(e) { console.error(e); }
     }
@@ -182,6 +192,129 @@
         const axis = document.getElementById('timeAxis'); axis.innerHTML = '';
         for(let i=9; i<=19; i++) axis.innerHTML += `<div class="time-label">${String(i).padStart(2,'0')}:00</div>`;
     }
+
+    // 요약 보고서 새 창 띄우기 및 통계 연산
+    function openSummaryReport() {
+        let totalCount = 0, nSum = 0, rSum = 0, nrSum = 0;
+        let totalDurationA = 0, totalDurationB = 0;
+        let pds = {}, mds = {}, shs = {}, timeBlocks = {};
+
+        const dayNames = ['월', '화', '수', '목', '금'];
+        let currentWeekDays = [];
+        
+        for(let i=0; i<5; i++) {
+            const targetDate = new Date(currentMonday);
+            targetDate.setDate(currentMonday.getDate() + i);
+            currentWeekDays.push(formatDate(targetDate));
+        }
+
+        currentWeekDays.forEach(dateStr => {
+            if (globalScheduleData[dateStr]) {
+                globalScheduleData[dateStr].forEach(item => {
+                    totalCount++;
+                    if(item.type === 'N') nSum++;
+                    else if(item.type === 'R') rSum++;
+                    else if(item.type === 'NR') nrSum++;
+
+                    if(item.st === 'A') totalDurationA += item.duration;
+                    if(item.st === 'B') totalDurationB += item.duration;
+
+                    if(item.pd) pds[item.pd] = (pds[item.pd] || 0) + 1;
+                    if(item.md) mds[item.md] = (mds[item.md] || 0) + 1;
+                    item.shArray.forEach(s => { shs[s] = (shs[s] || 0) + 1; });
+
+                    let startHour = parseInt(item.startTimeStr.split(':')[0]);
+                    if(!isNaN(startHour)) {
+                        let block = `${startHour}:00 ~ ${startHour+2}:00`;
+                        timeBlocks[block] = (timeBlocks[block] || 0) + 1;
+                    }
+                });
+            }
+        });
+
+        const getTop = (obj) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e => `${e[0]}(${e[1]}회)`).join(', ') || '없음';
+        const getPeakTime = (obj) => Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]?.[0] || '데이터 없음';
+
+        const lastDay = new Date(currentMonday); lastDay.setDate(currentMonday.getDate() + 4);
+        const weekPeriod = `${formatDate(currentMonday)} ~ ${formatDate(lastDay)}`;
+
+        const reportWindow = window.open("", "WeeklySummaryReport", "width=650,height=750,scrollbars=yes,resizable=yes");
+        
+        reportWindow.document.write(`
+            <html>
+            <head>
+                <title>주간 방송 제작 요약보고서</title>
+                <style>
+                    body { font-family: 'Pretendard', sans-serif; padding: 25px; background: #f8fafc; color: #1e293b; margin: 0; line-height: 1.5; }
+                    .report-header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+                    .report-title { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; }
+                    .report-period { font-size: 13px; color: #64748b; font-weight: 600; margin-top: 5px; }
+                    .section { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+                    .section-title { font-size: 15px; font-weight: 700; color: #2563eb; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+                    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+                    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+                    th { background: #f8fafc; font-weight: 700; color: #475569; width: 40%; }
+                    .value { font-weight: 600; color: #0f172a; }
+                    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; color: white; }
+                    .badge.N { background: #10b981; } .badge.R { background: #3b82f6; } .badge.NR { background: #f59e0b; }
+                    .close-btn-container { text-align: center; margin-top: 25px; }
+                    .close-btn { background: #0f172a; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
+                    .close-btn:hover { background: #1e293b; }
+                </style>
+            </head>
+            <body>
+                <div class="report-header">
+                    <div class="report-title">📊 주간 방송 제작 요약보고서</div>
+                    <div class="report-period">📅 대상 기간: ${weekPeriod}</div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">⏱️ 1. 총괄 제작 현황</div>
+                    <table>
+                        <tr><th>주간 총 제작 건수</th><td class="value">${totalCount} 건</td></tr>
+                        <tr><th>방송 구분 분포</th><td>
+                            <span class="badge N">N</span> ${nSum}건 | 
+                            <span class="badge R">R</span> ${rSum}건 | 
+                            <span class="badge NR">NR</span> ${nrSum}건
+                        </td></tr>
+                    </table>
+                </div>
+
+                <div class="grid-2">
+                    <div class="section">
+                        <div class="section-title">🏢 2. 스튜디오 가동 현황</div>
+                        <table>
+                            <tr><th>A 스튜디오</th><td class="value">${Math.round(totalDurationA / 60 * 10) / 10} 시간 소요</td></tr>
+                            <tr><th>B 스튜디오</th><td class="value">${Math.round(totalDurationB / 60 * 10) / 10} 시간 소요</td></tr>
+                        </table>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">🔥 3. 피크 타임 분석</div>
+                        <table>
+                            <tr><th>가장 집중되는 시간</th><td class="value" style="color:#ef4444;">${getPeakTime(timeBlocks)}</td></tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">👑 4. 주요 담당자별 배치 순위 (TOP 3)</div>
+                    <table>
+                        <tr><th>최다 배정 PD</th><td class="value">${getTop(pds)}</td></tr>
+                        <tr><th>최다 배정 MD</th><td class="value">${getTop(mds)}</td></tr>
+                        <tr><th>최다 출연 쇼호스트</th><td class="value">${getTop(shs)}</td></tr>
+                    </table>
+                </div>
+
+                <div class="close-btn-container">
+                    <button class="close-btn" onclick="window.close()">보고서 창 닫기</button>
+                </div>
+            </body>
+            </html>
+        `);
+        reportWindow.document.close();
+    }
+
     load();
 </script>
 </body>
